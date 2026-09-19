@@ -57,12 +57,12 @@ function tag(t,d){return `<span class="device ${t}Tag">${d}</span>`}
 function getOrderRows(){let rows=[];Object.values(T).forEach(t=>t.s.forEach(x=>rows.push(x)));extra.forEach(o=>rows.push(o.x));return rows}
 function setOrderPage(page){const total=getOrderRows().length;const maxPage=Math.max(1,Math.ceil(total/10));orderPage=Math.min(maxPage,Math.max(1,page));drawOrders()}
 function drawOrders(){let rows=getOrderRows(),start=(orderPage-1)*10,pageRows=rows.slice(start,start+10),total=rows.length;document.getElementById('orders').innerHTML=pageRows.map((x,i)=>`<tr><td>${start+i+1}</td><td class="customerCell">${x[1]}</td><td><span class="addr">${x[2]}</span></td><td>${tag(x[6],x[5])}</td><td><span class="window ${x[7].includes(':')?'special':''}">${x[7]}</span></td><td>${x[8]||60} min</td><td><span class="status">Geplant</span></td><td><button class="more">•••</button></td></tr>`).join('');const from=total?start+1:0,to=Math.min(start+10,total);const info=document.getElementById('ordersPageInfo');if(info)info.textContent=`Zeige ${from}–${to} von ${total} Aufträgen`;document.getElementById('ordersPage1')?.classList.toggle('active',orderPage===1);document.getElementById('ordersPage2')?.classList.toggle('active',orderPage===2);document.getElementById('ordersPrev')?.toggleAttribute('disabled',orderPage===1);document.getElementById('ordersNext')?.toggleAttribute('disabled',orderPage===maxPage)}
-function team(n,b){document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));if(b)b.classList.add('active');let t=T[n];document.getElementById('routeRegion').innerHTML=`<div class="region">${t.r}<small>6 Aufträge · ${n===1?'42':n===2?'61':'29'} km</small></div>`;let s='';t.s.forEach((x,i)=>{if(i)s+=`<div class="drive">🚗 ${x[3]}</div>`;s+=`<div class="stop"><div class="stopTime">${x[0]}</div><div class="timeline ${x[6]==='red'?'redDot':x[6]==='yellow'?'yellowDot':''}"><div class="job ${x[6]==='red'?'redLine':x[6]==='yellow'?'yellowLine':'blueLine'}"><div class="jobTop"><div class="jobName">${x[1]}</div><span class="tag ${x[6]}Tag">${x[4]}</span></div><div class="jobMeta">${x[2]}</div><div class="jobMeta">${x[5]}</div><div class="duration">${x[8]} min</div></div></div></div>`});document.getElementById('route').innerHTML=s+`<div class="notice">Gebiet zuerst bündeln, danach Fensterzeit, Montageart und Reihenfolge. Fahrdaten sind im Prototyp Demo-Werte.</div>`}
+function team(n,b){if(!T[n])return;document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));if(b)b.classList.add('active');if(document.getElementById('routeRegion'))renderDashboardTeam(n);if(document.getElementById('route2'))renderRoute2(n)}
 function opt(){document.querySelector('.title').textContent='Plan optimiert';setTimeout(()=>document.querySelector('.title').textContent='Tagesübersicht',1300)}
 function openModal(){document.getElementById('modal').classList.add('show')}function closeModal(){document.getElementById('modal').classList.remove('show')}
 function pickType(t){selectedType=t;['blue','red','yellow'].forEach(x=>document.getElementById('type'+x[0].toUpperCase()+x.slice(1)).classList.remove('sel'));document.getElementById('type'+t[0].toUpperCase()+t.slice(1)).classList.add('sel')}
 function addOrder(){const c=fCustomer.value.trim(),a=fAddress.value.trim(),d=fDevice.value.trim(),from=fFrom.value,to=fTo.value;if(!c||!a||!d||!from||!to){alert('Bitte Kunde, Adresse, Gerät und Fensterzeit ausfüllen.');return}if(from>=to){alert('Fensterzeit ist ungültig.');return}const name=selectedType==='blue'?'Freistehend':selectedType==='red'?'Einbau':'Lieferung';const x=[from+'–'+to,c,a,'',name,d,selectedType,from+'–'+to,+fDuration.value];extra.push({x});localStorage.setItem('montageExtra',JSON.stringify(extra));orderPage=Math.max(1,Math.ceil(getOrderRows().length/10));drawOrders();closeModal();['fCustomer','fAddress','fDevice'].forEach(id=>document.getElementById(id).value='')}
-try{extra=JSON.parse(localStorage.getItem('montageExtra')||'[]')}catch(e){extra=[]}drawOrders();team(1,document.querySelector('.tab'));
+try{extra=JSON.parse(localStorage.getItem('montageExtra')||'[]')}catch(e){extra=[]}drawOrders();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 
 const baseOrders=()=>{let rows=[];Object.values(T).forEach(t=>t.s.forEach(x=>rows.push({customer:x[1],address:x[2],device:x[5],type:x[4],color:x[6],window:x[7],duration:x[8],status:'Geplant'})));extra.forEach(o=>{let x=o.x;rows.push({customer:x[1],address:x[2],device:x[5],type:x[4],color:x[6],window:x[7],duration:x[8],status:'Offen'})});return rows};
@@ -78,7 +78,33 @@ function renderSettingsView(){let saved=JSON.parse(localStorage.getItem('montage
 function saveSettings(){let data={from:document.getElementById('setFrom').value,to:document.getElementById('setTo').value,region:document.getElementById('swRegion').classList.contains('on'),window:document.getElementById('swWindow').classList.contains('on')};localStorage.setItem('montageSettings',JSON.stringify(data));alert('Einstellungen gespeichert.');}
 // top search drives order view
 const topSearch=document.querySelector('.searchTop input');if(topSearch)topSearch.addEventListener('input',()=>{showView('orders',null);const q=document.getElementById('ordersSearch');if(q){q.value=topSearch.value;renderOrdersTable()}});
-// extend original team() so dedicated Tagesplan view also works
-const oldTeam=team;team=function(n,b){oldTeam(n,b);if(document.getElementById('route2'))renderRoute2(n)};
+
+// V34: robust initial dashboard team rendering.
+// Render Team 1 directly into the dashboard panel on every relevant lifecycle event.
+function renderDashboardTeam(n){
+  const region=document.getElementById('routeRegion');
+  const route=document.getElementById('route');
+  if(!region || !route || !T[n]) return false;
+  const t=T[n];
+  region.innerHTML=`<div class="region">${t.r}<small>${t.s.length} Aufträge · ${n===1?'42':n===2?'61':'29'} km</small></div>`;
+  let s='';
+  t.s.forEach((x,i)=>{
+    if(i) s+=`<div class="drive">🚗 ${x[3]}</div>`;
+    s+=`<div class="stop"><div class="stopTime">${x[0]}</div><div class="timeline ${x[6]==='red'?'redDot':x[6]==='yellow'?'yellowDot':''}"><div class="job ${x[6]==='red'?'redLine':x[6]==='yellow'?'yellowLine':'blueLine'}"><div class="jobTop"><div class="jobName">${x[1]}</div><span class="tag ${x[6]}Tag">${x[4]}</span></div><div class="jobMeta">${x[2]}</div><div class="jobMeta">${x[5]}</div><div class="duration">${x[8]} min</div></div></div></div>`;
+  });
+  route.innerHTML=s+`<div class="notice">Gebiet zuerst bündeln, danach Fensterzeit, Montageart und Reihenfolge. Fahrdaten sind im Prototyp Demo-Werte.</div>`;
+  return true;
+}
+function initDashboardTeam(){
+  // Try immediately, after DOM ready, and after load. One of these will always run
+  // after the dashboard panel exists, including when the page is restored from cache.
+  renderDashboardTeam(1);
+  const tab=document.querySelector('.dayPanel .tabs .tab');
+  if(tab){ document.querySelectorAll('.dayPanel .tab').forEach(x=>x.classList.remove('active')); tab.classList.add('active'); }
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',initDashboardTeam,{once:true});
+else initDashboardTeam();
+window.addEventListener('load',initDashboardTeam,{once:true});
+setTimeout(initDashboardTeam,50);
 </script>
 </body></html>
