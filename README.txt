@@ -1,3 +1,5 @@
-Montageplaner V40 – Auftragstag sichtbar und speicherbar
+Montageplaner V41 – getrennte Auftrags-Tage
 
-Der Dialog „Neuer Auftrag“ enthält jetzt ein sichtbar platziertes Feld „Tag des Auftrags“ direkt unter der Adresse. Das Datum wird mit jedem neuen Auftrag gespeichert.
+Jeder Auftrag hat ein eigenes Datum. Das Dashboard besitzt einen sichtbaren Tag-Selektor. Aufträge werden ausschließlich für den gewählten Tag angezeigt und „Plan optimieren“ arbeitet nur mit den Aufträgen dieses Tages.
+
+Standard-Demo: Montag, 21.09.2026.

@@ -21,7 +21,14 @@
 </aside>
 <main>
 <div id="view-dashboard" class="view">
-<div class="top"><div><div class="date">Montag, 21. September 2026</div><div class="title">Tagesübersicht</div><div class="sub">Hier ist dein aktueller Überblick. Alles im Plan!</div></div><div class="topActions"><button class="btn primary" onclick="openModal()">＋ Neuer Auftrag</button></div></div>
+<div class="top"><div><div class="date">Montag, 21. September 2026</div><div class="title">Tagesübersicht</div><div class="sub">Hier ist dein aktueller Überblick. Alles im Plan!</div></div><div class="topActions">
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;color:#667792">
+        Tag
+        <input id="planDate" type="date" value="2026-09-21" onchange="changePlanDate(this.value)"
+          style="height:38px;border:1px solid #dce5f2;background:#fff;border-radius:10px;padding:0 10px;color:#23324d;font-weight:700">
+      </label>
+      <button class="btn primary" onclick="openModal()">＋ Neuer Auftrag</button>
+    </div></div>
 <div class="kpis">
 <div class="kpi"><div class="kpiIcon kiBlue">▣</div><div><div class="knum">18</div><div class="klbl">Aufträge heute</div></div><span style="margin-left:auto;background:#dcf7e7;color:#178745;padding:5px 7px;border-radius:7px;font-size:10px;font-weight:850">+2</span></div>
 <div class="kpi"><div class="kpiIcon kiGreen">♟</div><div><div class="knum">3</div><div class="klbl">Teams aktiv</div></div></div>
@@ -54,12 +61,52 @@
 const T={1:{r:'Salzgitter Nord',s:[['08:00','Müller','Chemnitzer Straße 18, 38226 Salzgitter','', 'Freistehend','Waschmaschine','blue','08–11',60],['09:38','Schneider','Berliner Straße 42, 38226 Salzgitter','8 min · 4,8 km','Einbau','Geschirrspüler','red','08–11',90],['10:46','Wagner','Kattowitzer Straße 27, 38226 Salzgitter','8 min · 5,1 km','Freistehend','Kühlschrank','blue','08–11',60],['13:00','Becker','Albert-Schweitzer-Straße 15, 38226 Salzgitter','14 min · 7,2 km','Einbau','Backofen + Kochfeld','red','13–16',90],['14:08','Fischer','Neißestraße 11, 38226 Salzgitter','8 min · 4,8 km','Lieferung','Kühlschrank','yellow','14:30–16:00',60],['15:45','Weber','Korbmacherweg 9, 38226 Salzgitter','7 min · 3,9 km','Freistehend','Geschirrspüler','blue','13–16',60]]},2:{r:'Salzgitter Süd',s:[['08:00','Hoffmann','Frankfurter Straße 65, 38259 Salzgitter','', 'Einbau','Geschirrspüler','red','08–11',90],['09:38','Klein','Vorsalzer Straße 24, 38259 Salzgitter','8 min · 4,2 km','Freistehend','Waschmaschine','blue','08–11',60],['13:00','Richter','Hildesheimer Straße 12, 38268 Lengede','22 min · 18,5 km','Lieferung','Gefrierschrank','yellow','13–16',60],['14:08','Wolf','Peiner Straße 18, 38159 Vechelde','15 min · 12,1 km','Einbau','Backofen + Kochfeld','red','13–16',90],['15:15','Neumann','Breslauer Straße 31, 38259 Salzgitter','23 min · 19,6 km','Freistehend','Kühlschrank','blue','13–16',60],['16:20','Hartmann','Klesmerstraße 16, 38259 Salzgitter','7 min · 3,4 km','Lieferung','Waschmaschine','yellow','13–16',60]]},3:{r:'Braunschweig Nord',s:[['08:00','Meyer','Bohlweg 30, 38100 Braunschweig','', 'Freistehend','Waschmaschine','blue','08–11',60],['09:38','Schulz','Berliner Straße 55, 38114 Braunschweig','10 min · 4,9 km','Einbau','Geschirrspüler','red','08–11',90],['10:46','Lehmann','Hamburger Straße 120, 38114 Braunschweig','8 min · 3,1 km','Freistehend','Kühlschrank','blue','08–11',60],['13:00','Krause','Petritorwall 22, 38118 Braunschweig','11 min · 5,4 km','Lieferung','Gefrierschrank','yellow','13–16',60],['14:08','Bauer','Berliner Heerstraße 8, 38104 Braunschweig','13 min · 6,8 km','Einbau','Backofen + Kochfeld','red','13–16',90],['15:46','König','Hauptstraße 15, 38110 Braunschweig','12 min · 5,7 km','Freistehend','Geschirrspüler','blue','13–16',60] ]}};
 let extra=[];let selectedType='blue';let orderPage=1;
 function tag(t,d){return `<span class="device ${t}Tag">${d}</span>`}
+const APP_DATE='2026-09-21';
+let selectedPlanDate=localStorage.getItem('montageplaner-plan-date')||APP_DATE;
+
+
+function renderSelectedDayPlan(){
+  const route=document.getElementById('route');
+  const region=document.getElementById('routeRegion');
+  if(!route || !region) return;
+  if(selectedPlanDate===APP_DATE){
+    if(typeof renderDashboardTeam==='function') renderDashboardTeam(1);
+    return;
+  }
+  const rows=getOrderRows();
+  region.innerHTML=`<div class="region">Noch keine Planung<small>${rows.length} Aufträge für ${selectedPlanDate}</small></div>`;
+  route.innerHTML=rows.length
+    ? '<div style="padding:24px;color:#667792;font-weight:700">Klicke auf „Plan optimieren“, um die Aufträge dieses Tages auf die Teams zu verteilen.</div>'
+    : '<div style="padding:24px;color:#667792;font-weight:700">Keine Aufträge für diesen Tag.</div>';
+}
+function changePlanDate(value){
+  selectedPlanDate=value||APP_DATE;
+  localStorage.setItem('montageplaner-plan-date',selectedPlanDate);
+  const pd=document.getElementById('planDate');
+  if(pd) pd.value=selectedPlanDate;
+  const modalDate=document.getElementById('fOrderDate');
+  if(modalDate) modalDate.value=selectedPlanDate;
+  orderPage=1;
+  drawOrders();
+  renderSelectedDayPlan();
+}
+
 function getOrderRows(){
   let rows=[];
-  Object.values(T).forEach(t=>t.s.forEach(x=>rows.push(x)));
-  extra.forEach(o=>rows.push(o.x));
+  Object.values(T).forEach(t=>t.s.forEach(x=>{
+    const y=x.slice();
+    y[9]=APP_DATE;
+    if(selectedPlanDate===APP_DATE) rows.push(y);
+  }));
+  extra.forEach(o=>{
+    const x=o.x.slice();
+    const d=o.date||x[9]||APP_DATE;
+    x[9]=d;
+    if(d===selectedPlanDate) rows.push(x);
+  });
   return rows;
 }
+
 function normalizeSearch(value){
   return String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 }
@@ -200,14 +247,24 @@ function addOrder(){
   drawOrders();
   closeModal();
   ['fCustomer','fAddress','fDevice'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('fOrderDate').value=new Date().toISOString().slice(0,10);
+  document.getElementById('fOrderDate').value=selectedPlanDate;
 }
 try{extra=JSON.parse(localStorage.getItem('montageExtra')||'[]')}catch(e){extra=[]}
 initDashboardSearch();
 drawOrders();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 
-const baseOrders=()=>{let rows=[];Object.values(T).forEach(t=>t.s.forEach(x=>rows.push({customer:x[1],address:x[2],device:x[5],type:x[4],color:x[6],window:x[7],duration:x[8],status:'Geplant'})));extra.forEach(o=>{let x=o.x;rows.push({customer:x[1],address:x[2],device:x[5],type:x[4],color:x[6],window:x[7],duration:x[8],date:o.date||x[9]||'',status:'Offen'})});return rows};
+const baseOrders=()=>{
+  let rows=[];
+  if(selectedPlanDate===APP_DATE){
+    Object.values(T).forEach(t=>t.s.forEach(x=>rows.push({customer:x[1],address:x[2],device:x[5],type:x[4],color:x[6],window:x[7],duration:x[8],date:APP_DATE,status:'Geplant'})));
+  }
+  extra.forEach(o=>{
+    let x=o.x, d=o.date||x[9]||APP_DATE;
+    if(d===selectedPlanDate) rows.push({customer:x[1],address:x[2],device:x[5],type:x[4],color:x[6],window:x[7],duration:x[8],date:d,status:'Offen'});
+  });
+  return rows;
+};
 function allOrders(){return baseOrders()}
 function showView(name,btn){document.querySelectorAll('.view').forEach(v=>v.classList.add('hidden'));document.getElementById('view-'+name).classList.remove('hidden');document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');else{let b=document.querySelector(`.nav button[data-view="${name}"]`);if(b)b.classList.add('active')}if(name==='orders')renderOrdersView();if(name==='day')renderDayView();if(name==='teams')renderTeamsView();if(name==='stats')renderStatsView();if(name==='settings')renderSettingsView()}
 function renderOrdersView(){let el=document.getElementById('view-orders');el.innerHTML=`<div class="viewHeader"><div><h1>Aufträge</h1><p>Alle Kundenaufträge und offenen Aufträge verwalten.</p></div><button class="btn primary" onclick="openModal()">＋ Neuer Auftrag</button></div><div class="viewCard"><div class="toolbar"><input id="ordersSearch" placeholder="Kunde, Adresse oder Gerät suchen …" oninput="renderOrdersTable()"><select id="ordersStatus" onchange="renderOrdersTable()"><option value="all">Alle Status</option><option value="Geplant">Geplant</option><option value="Offen">Offen</option></select></div><div style="overflow:auto"><table class="fullTable"><thead><tr><th>Kunde</th><th>Adresse</th><th>Gerät</th><th>Fenster</th><th>Dauer</th><th>Status</th><th></th></tr></thead><tbody id="ordersFull"></tbody></table></div></div>`;renderOrdersTable()}
@@ -251,16 +308,18 @@ else initDashboardTeam();
 window.addEventListener('load',initDashboardTeam,{once:true});
 setTimeout(initDashboardTeam,50);
 </script>
-</body></html>
 
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  const dateInput = document.getElementById('order-date');
-  if (dateInput && !dateInput.value) {
-    const selectedDay =
-      localStorage.getItem('montageplaner-selected-day') ||
-      new Date().toISOString().slice(0,10);
-    dateInput.value = selectedDay;
-  }
+document.addEventListener('DOMContentLoaded',()=>{
+  const pd=document.getElementById('planDate');
+  if(pd){ pd.value=selectedPlanDate; }
+  const fd=document.getElementById('fOrderDate');
+  if(fd) fd.value=selectedPlanDate;
+  drawOrders();
+  renderSelectedDayPlan();
 });
-</script>
+window.addEventListener('load',()=>{
+  const pd=document.getElementById('planDate');
+  if(pd) pd.value=selectedPlanDate;
+  renderSelectedDayPlan();
+});
+</body></html>
