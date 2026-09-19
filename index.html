@@ -104,7 +104,73 @@ function drawOrders(){
   document.getElementById('ordersNext')?.toggleAttribute('disabled',orderPage===maxPage);
 }
 function team(n,b){if(!T[n])return;document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));if(b)b.classList.add('active');if(document.getElementById('routeRegion'))renderDashboardTeam(n);if(document.getElementById('route2'))renderRoute2(n)}
-function opt(){document.querySelector('.title').textContent='Plan optimiert';setTimeout(()=>document.querySelector('.title').textContent='Tagesübersicht',1300)}
+function getPLZ(address){
+  const m=String(address||'').match(/\b\d{5}\b/);
+  return m?m[0]:'Ohne PLZ';
+}
+function orderStartMinutes(x){
+  const m=String(x[7]||x[0]||'').match(/(\d{1,2}):(\d{2})/);
+  return m ? (+m[1])*60+(+m[2]) : 9999;
+}
+function optimizeByPLZ(){
+  const rows=getOrderRows().map(x=>Array.isArray(x)?x.slice():x);
+  if(!rows.length) return;
+
+  // Group whole postal-code areas together. This is deliberate:
+  // a postal-code group is not split between teams unless necessary.
+  const groups={};
+  rows.forEach(x=>{
+    const plz=getPLZ(x[2]);
+    (groups[plz] ||= []).push(x);
+  });
+
+  const groupList=Object.entries(groups).map(([plz,items])=>({
+    plz, items,
+    minutes:items.reduce((sum,x)=>sum+(+x[8]||60),0),
+    firstWindow:Math.min(...items.map(orderStartMinutes))
+  })).sort((a,b)=>b.minutes-a.minutes || a.firstWindow-b.firstWindow);
+
+  const buckets=[[],[],[]];
+  const totals=[0,0,0];
+
+  // Put the largest PLZ area into the currently least-loaded team.
+  groupList.forEach(g=>{
+    let idx=0;
+    for(let i=1;i<3;i++) if(totals[i]<totals[idx]) idx=i;
+    buckets[idx].push(g);
+    totals[idx]+=g.minutes;
+  });
+
+  const oldRegions=['PLZ','PLZ','PLZ'];
+  for(let i=0;i<3;i++){
+    const teamGroups=buckets[i];
+    const items=teamGroups.flatMap(g=>g.items)
+      .sort((a,b)=>orderStartMinutes(a)-orderStartMinutes(b) || getPLZ(a[2]).localeCompare(getPLZ(b[2])));
+
+    // Rebuild the route data while keeping the existing demo drive values.
+    // Real driving times can later be replaced by a routing API.
+    items.forEach((x,idx)=>{
+      if(idx===0) x[3]='';
+      else if(getPLZ(x[2])===getPLZ(items[idx-1][2])) x[3]='PLZ gleich';
+      else x[3]='PLZ-Wechsel';
+    });
+
+    const plzs=teamGroups.map(g=>g.plz);
+    const region=plzs.length ? `PLZ ${plzs.join(' · ')}` : 'Keine Aufträge';
+    T[i+1]={r:region,s:items};
+  }
+
+  // Persist the calculated assignment so it remains visible during this session.
+  window.plzOptimized=true;
+  renderDashboardTeam(1);
+  const active=document.querySelector('.dayPanel .tab.active');
+  if(active) team(1,active);
+  document.querySelector('.title').textContent='Plan nach PLZ optimiert';
+  setTimeout(()=>document.querySelector('.title').textContent='Tagesübersicht',1800);
+}
+function opt(){
+  optimizeByPLZ();
+}
 function openModal(){document.getElementById('modal').classList.add('show')}function closeModal(){document.getElementById('modal').classList.remove('show')}
 function pickType(t){selectedType=t;['blue','red','yellow'].forEach(x=>document.getElementById('type'+x[0].toUpperCase()+x.slice(1)).classList.remove('sel'));document.getElementById('type'+t[0].toUpperCase()+t.slice(1)).classList.add('sel')}
 function addOrder(){const c=fCustomer.value.trim(),a=fAddress.value.trim(),d=fDevice.value.trim(),from=fFrom.value,to=fTo.value;if(!c||!a||!d||!from||!to){alert('Bitte Kunde, Adresse, Gerät und Fensterzeit ausfüllen.');return}if(from>=to){alert('Fensterzeit ist ungültig.');return}const name=selectedType==='blue'?'Freistehend':selectedType==='red'?'Einbau':'Lieferung';const x=[from+'–'+to,c,a,'',name,d,selectedType,from+'–'+to,+fDuration.value];extra.push({x});localStorage.setItem('montageExtra',JSON.stringify(extra));orderPage=Math.max(1,Math.ceil(getOrderRows().length/10));drawOrders();closeModal();['fCustomer','fAddress','fDevice'].forEach(id=>document.getElementById(id).value='')}
