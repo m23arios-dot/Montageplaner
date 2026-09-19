@@ -1,5 +1,3 @@
-Montageplaner V41 – getrennte Auftrags-Tage
+Montageplaner V42 – JavaScript Anzeige Fix
 
-Jeder Auftrag hat ein eigenes Datum. Das Dashboard besitzt einen sichtbaren Tag-Selektor. Aufträge werden ausschließlich für den gewählten Tag angezeigt und „Plan optimieren“ arbeitet nur mit den Aufträgen dieses Tages.
-
-Standard-Demo: Montag, 21.09.2026.
+Behoben: Ein Initialisierungsblock wurde versehentlich außerhalb des Script-Tags ausgegeben und dadurch als sichtbarer Text am unteren Seitenrand dargestellt. Der Code ist jetzt wieder korrekt innerhalb eines Script-Tags.
