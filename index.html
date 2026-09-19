@@ -49,7 +49,7 @@
 <div id="view-stats" class="view hidden"></div>
 <div id="view-settings" class="view hidden"></div>
 </main></div>
-<div class="modal" id="modal" onclick="if(event.target===this)closeModal()"><div class="modalCard"><div class="modalHead"><div><b>Neuer Auftrag</b><div class="addr">Neues Kundenauftrag anlegen</div></div><button class="more" onclick="closeModal()">×</button></div><div class="modalBody"><div class="formgrid"><div class="field"><label>Kunde</label><input id="fCustomer" placeholder="Max Mustermann"></div><div class="field full"><label>Adresse</label><input id="fAddress" placeholder="Straße 12, 38226 Salzgitter"></div><div class="field full"><label>Auftrag-Typ</label><div class="typeChoice"><button id="typeBlue" class="sel blueChoice" onclick="pickType('blue');return false">● Freistehend</button><button id="typeRed" class="redChoice" onclick="pickType('red');return false">● Einbau</button><button id="typeYellow" class="yellowChoice" onclick="pickType('yellow');return false">● Lieferung</button></div></div><div class="field"><label>Gerät</label><input id="fDevice" placeholder="z. B. Bosch Waschmaschine WGG244"></div><div class="field"><label>Montagedauer</label><select id="fDuration"><option value="60">60 min</option><option value="90">90 min</option><option value="120">120 min</option><option value="30">30 min</option></select></div><div class="field"><label>Fenster von</label><input id="fFrom" type="time" value="08:00"></div><div class="field"><label>Fenster bis</label><input id="fTo" type="time" value="11:00"></div></div><div class="hint">Die genaue Ankunftszeit wird später im Tagesplan aus Fensterzeit, Montage und Fahrt berechnet.</div></div><div class="modalFoot"><button class="btn" onclick="closeModal()">Abbrechen</button><button class="btn primary" onclick="addOrder()">＋ Auftrag hinzufügen</button></div></div></div>
+<div class="modal" id="modal" onclick="if(event.target===this)closeModal()"><div class="modalCard"><div class="modalHead"><div><b>Neuer Auftrag</b><div class="addr">Neues Kundenauftrag anlegen</div></div><button class="more" onclick="closeModal()">×</button></div><div class="modalBody"><div class="formgrid"><div class="field"><label>Kunde</label><input id="fCustomer" placeholder="Max Mustermann"></div><div class="field full"><label>Adresse</label><input id="fAddress" placeholder="Straße 12, 38226 Salzgitter"></div><div class="field full"><label>Tag des Auftrags</label><input id="fOrderDate" type="date" required></div><div class="field full"><label>Auftrag-Typ</label><div class="typeChoice"><button id="typeBlue" class="sel blueChoice" onclick="pickType('blue');return false">● Freistehend</button><button id="typeRed" class="redChoice" onclick="pickType('red');return false">● Einbau</button><button id="typeYellow" class="yellowChoice" onclick="pickType('yellow');return false">● Lieferung</button></div></div><div class="field"><label>Gerät</label><input id="fDevice" placeholder="z. B. Bosch Waschmaschine WGG244"></div><div class="field"><label>Montagedauer</label><select id="fDuration"><option value="60">60 min</option><option value="90">90 min</option><option value="120">120 min</option><option value="30">30 min</option></select></div><div class="field"><label>Fenster von</label><input id="fFrom" type="time" value="08:00"></div><div class="field"><label>Fenster bis</label><input id="fTo" type="time" value="11:00"></div></div><div class="hint">Die genaue Ankunftszeit wird später im Tagesplan aus Fensterzeit, Montage und Fahrt berechnet.</div></div><div class="modalFoot"><button class="btn" onclick="closeModal()">Abbrechen</button><button class="btn primary" onclick="addOrder()">＋ Auftrag hinzufügen</button></div></div></div>
 <script>
 const T={1:{r:'Salzgitter Nord',s:[['08:00','Müller','Chemnitzer Straße 18, 38226 Salzgitter','', 'Freistehend','Waschmaschine','blue','08–11',60],['09:38','Schneider','Berliner Straße 42, 38226 Salzgitter','8 min · 4,8 km','Einbau','Geschirrspüler','red','08–11',90],['10:46','Wagner','Kattowitzer Straße 27, 38226 Salzgitter','8 min · 5,1 km','Freistehend','Kühlschrank','blue','08–11',60],['13:00','Becker','Albert-Schweitzer-Straße 15, 38226 Salzgitter','14 min · 7,2 km','Einbau','Backofen + Kochfeld','red','13–16',90],['14:08','Fischer','Neißestraße 11, 38226 Salzgitter','8 min · 4,8 km','Lieferung','Kühlschrank','yellow','14:30–16:00',60],['15:45','Weber','Korbmacherweg 9, 38226 Salzgitter','7 min · 3,9 km','Freistehend','Geschirrspüler','blue','13–16',60]]},2:{r:'Salzgitter Süd',s:[['08:00','Hoffmann','Frankfurter Straße 65, 38259 Salzgitter','', 'Einbau','Geschirrspüler','red','08–11',90],['09:38','Klein','Vorsalzer Straße 24, 38259 Salzgitter','8 min · 4,2 km','Freistehend','Waschmaschine','blue','08–11',60],['13:00','Richter','Hildesheimer Straße 12, 38268 Lengede','22 min · 18,5 km','Lieferung','Gefrierschrank','yellow','13–16',60],['14:08','Wolf','Peiner Straße 18, 38159 Vechelde','15 min · 12,1 km','Einbau','Backofen + Kochfeld','red','13–16',90],['15:15','Neumann','Breslauer Straße 31, 38259 Salzgitter','23 min · 19,6 km','Freistehend','Kühlschrank','blue','13–16',60],['16:20','Hartmann','Klesmerstraße 16, 38259 Salzgitter','7 min · 3,4 km','Lieferung','Waschmaschine','yellow','13–16',60]]},3:{r:'Braunschweig Nord',s:[['08:00','Meyer','Bohlweg 30, 38100 Braunschweig','', 'Freistehend','Waschmaschine','blue','08–11',60],['09:38','Schulz','Berliner Straße 55, 38114 Braunschweig','10 min · 4,9 km','Einbau','Geschirrspüler','red','08–11',90],['10:46','Lehmann','Hamburger Straße 120, 38114 Braunschweig','8 min · 3,1 km','Freistehend','Kühlschrank','blue','08–11',60],['13:00','Krause','Petritorwall 22, 38118 Braunschweig','11 min · 5,4 km','Lieferung','Gefrierschrank','yellow','13–16',60],['14:08','Bauer','Berliner Heerstraße 8, 38104 Braunschweig','13 min · 6,8 km','Einbau','Backofen + Kochfeld','red','13–16',90],['15:46','König','Hauptstraße 15, 38110 Braunschweig','12 min · 5,7 km','Freistehend','Geschirrspüler','blue','13–16',60] ]}};
 let extra=[];let selectedType='blue';let orderPage=1;
@@ -171,15 +171,43 @@ function optimizeByPLZ(){
 function opt(){
   optimizeByPLZ();
 }
-function openModal(){document.getElementById('modal').classList.add('show')}function closeModal(){document.getElementById('modal').classList.remove('show')}
+function openModal(){
+  const dateField=document.getElementById('fOrderDate');
+  if(dateField && !dateField.value) dateField.value=new Date().toISOString().slice(0,10);
+  document.getElementById('modal').classList.add('show')
+}function closeModal(){document.getElementById('modal').classList.remove('show')}
 function pickType(t){selectedType=t;['blue','red','yellow'].forEach(x=>document.getElementById('type'+x[0].toUpperCase()+x.slice(1)).classList.remove('sel'));document.getElementById('type'+t[0].toUpperCase()+t.slice(1)).classList.add('sel')}
-function addOrder(){const c=fCustomer.value.trim(),a=fAddress.value.trim(),d=fDevice.value.trim(),from=fFrom.value,to=fTo.value;if(!c||!a||!d||!from||!to){alert('Bitte Kunde, Adresse, Gerät und Fensterzeit ausfüllen.');return}if(from>=to){alert('Fensterzeit ist ungültig.');return}const name=selectedType==='blue'?'Freistehend':selectedType==='red'?'Einbau':'Lieferung';const x=[from+'–'+to,c,a,'',name,d,selectedType,from+'–'+to,+fDuration.value];extra.push({x});localStorage.setItem('montageExtra',JSON.stringify(extra));orderPage=Math.max(1,Math.ceil(getOrderRows().length/10));drawOrders();closeModal();['fCustomer','fAddress','fDevice'].forEach(id=>document.getElementById(id).value='')}
+function addOrder(){
+  const c=fCustomer.value.trim(),
+        a=fAddress.value.trim(),
+        d=fDevice.value.trim(),
+        date=document.getElementById('fOrderDate').value,
+        from=fFrom.value,
+        to=fTo.value;
+  if(!c||!a||!d||!date||!from||!to){
+    alert('Bitte Kunde, Adresse, Tag des Auftrags, Gerät und Fensterzeit ausfüllen.');
+    return;
+  }
+  if(from>=to){
+    alert('Fensterzeit ist ungültig.');
+    return;
+  }
+  const name=selectedType==='blue'?'Freistehend':selectedType==='red'?'Einbau':'Lieferung';
+  const x=[from+'–'+to,c,a,'',name,d,selectedType,from+'–'+to,+fDuration.value,date];
+  extra.push({x,date});
+  localStorage.setItem('montageExtra',JSON.stringify(extra));
+  orderPage=Math.max(1,Math.ceil(getOrderRows().length/10));
+  drawOrders();
+  closeModal();
+  ['fCustomer','fAddress','fDevice'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fOrderDate').value=new Date().toISOString().slice(0,10);
+}
 try{extra=JSON.parse(localStorage.getItem('montageExtra')||'[]')}catch(e){extra=[]}
 initDashboardSearch();
 drawOrders();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 
-const baseOrders=()=>{let rows=[];Object.values(T).forEach(t=>t.s.forEach(x=>rows.push({customer:x[1],address:x[2],device:x[5],type:x[4],color:x[6],window:x[7],duration:x[8],status:'Geplant'})));extra.forEach(o=>{let x=o.x;rows.push({customer:x[1],address:x[2],device:x[5],type:x[4],color:x[6],window:x[7],duration:x[8],status:'Offen'})});return rows};
+const baseOrders=()=>{let rows=[];Object.values(T).forEach(t=>t.s.forEach(x=>rows.push({customer:x[1],address:x[2],device:x[5],type:x[4],color:x[6],window:x[7],duration:x[8],status:'Geplant'})));extra.forEach(o=>{let x=o.x;rows.push({customer:x[1],address:x[2],device:x[5],type:x[4],color:x[6],window:x[7],duration:x[8],date:o.date||x[9]||'',status:'Offen'})});return rows};
 function allOrders(){return baseOrders()}
 function showView(name,btn){document.querySelectorAll('.view').forEach(v=>v.classList.add('hidden'));document.getElementById('view-'+name).classList.remove('hidden');document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');else{let b=document.querySelector(`.nav button[data-view="${name}"]`);if(b)b.classList.add('active')}if(name==='orders')renderOrdersView();if(name==='day')renderDayView();if(name==='teams')renderTeamsView();if(name==='stats')renderStatsView();if(name==='settings')renderSettingsView()}
 function renderOrdersView(){let el=document.getElementById('view-orders');el.innerHTML=`<div class="viewHeader"><div><h1>Aufträge</h1><p>Alle Kundenaufträge und offenen Aufträge verwalten.</p></div><button class="btn primary" onclick="openModal()">＋ Neuer Auftrag</button></div><div class="viewCard"><div class="toolbar"><input id="ordersSearch" placeholder="Kunde, Adresse oder Gerät suchen …" oninput="renderOrdersTable()"><select id="ordersStatus" onchange="renderOrdersTable()"><option value="all">Alle Status</option><option value="Geplant">Geplant</option><option value="Offen">Offen</option></select></div><div style="overflow:auto"><table class="fullTable"><thead><tr><th>Kunde</th><th>Adresse</th><th>Gerät</th><th>Fenster</th><th>Dauer</th><th>Status</th><th></th></tr></thead><tbody id="ordersFull"></tbody></table></div></div>`;renderOrdersTable()}
@@ -224,3 +252,15 @@ window.addEventListener('load',initDashboardTeam,{once:true});
 setTimeout(initDashboardTeam,50);
 </script>
 </body></html>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const dateInput = document.getElementById('order-date');
+  if (dateInput && !dateInput.value) {
+    const selectedDay =
+      localStorage.getItem('montageplaner-selected-day') ||
+      new Date().toISOString().slice(0,10);
+    dateInput.value = selectedDay;
+  }
+});
+</script>
