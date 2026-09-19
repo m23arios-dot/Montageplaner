@@ -1,8 +1,7 @@
-Montageplaner V20
+Montageplaner
 
-Dateien:
-- index.html – Anwendung
-- manifest.json – PWA-Konfiguration
-- sw.js – Offline-Cache
-
-V20: Gerät als Freitext, keine manuelle Team-Auswahl. Teams werden später durch Plan optimieren zugeteilt.
+V27 visual refinement:
+- minimalist Montageplaner mark
+- white EP wordmark beside Montageplaner
+- removed bottom sidebar logo
+- all existing V26 functionality preserved
