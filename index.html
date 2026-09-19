@@ -28,8 +28,32 @@ function opt(){document.getElementById('title').textContent='Plan optimiert';set
 let extra=[];let selectedType="blue";
 function openModal(){document.getElementById("modal").classList.add("show")}
 function closeModal(){document.getElementById("modal").classList.remove("show")}
-function pickType(t){selectedType=t;["blue","red","yellow"].forEach(x=>document.getElementById("type"+(x==="blue"?"Blue":x==="red"?"Red":"Yellow")).classList.remove("sel"));document.getElementById("type"+(t==="blue"?"Blue":t==="red"?"Red":"Yellow")).classList.add("sel")}
-function addOrder(){const c=document.getElementById("fCustomer").value.trim(),a=document.getElementById("fAddress").value.trim(),from=document.getElementById("fFrom").value,to=document.getElementById("fTo").value;if(!c||!a||!from||!to){alert("Bitte Kunde, Adresse und Fensterzeit ausfüllen.");return}const teamNo=+document.getElementById("fTeam").value;const duration=+document.getElementById("fDuration").value;const device=document.getElementById("fDevice").value;const typeName=selectedType==="blue"?"Freistehend":selectedType==="red"?"Einbau":"Lieferung";const x=[from+"–"+to,c,a,"",typeName,device,selectedType,from+"–"+to,duration];T[teamNo].s.push(x);extra.push(x);closeModal();drawOrders();team(teamNo,document.querySelectorAll(".tab")[teamNo-1]);document.getElementById("fCustomer").value="";document.getElementById("fAddress").value="";localStorage.setItem("montageExtra",JSON.stringify(extra))}
-function loadExtra(){try{const saved=JSON.parse(localStorage.getItem("montageExtra")||"[]");saved.forEach(x=>{const t=1;T[t].s.push(x);extra.push(x)})}catch(e){}}
+function pickType(t){selectedType=t;["blue","red","yellow"].forEach(x=>{const id="type"+(x==="blue"?"Blue":x==="red"?"Red":"Yellow");document.getElementById(id).classList.remove("sel")});document.getElementById("type"+(t==="blue"?"Blue":t==="red"?"Red":"Yellow")).classList.add("sel")}
+function addOrder(){const c=document.getElementById("fCustomer").value.trim(),a=document.getElementById("fAddress").value.trim(),from=document.getElementById("fFrom").value,to=document.getElementById("fTo").value;if(!c||!a||!from||!to){alert("Bitte Kunde, Adresse und Fensterzeit ausfüllen.");return}if(from>=to){alert("Fensterzeit ist ungültig.");return}const teamNo=+document.getElementById("fTeam").value;const duration=+document.getElementById("fDuration").value;const device=document.getElementById("fDevice").value;const typeName=selectedType==="blue"?"Freistehend":selectedType==="red"?"Einbau":"Lieferung";const x=[from+"–"+to,c,a,"",typeName,device,selectedType,from+"–"+to,duration];T[teamNo].s.push(x);extra.push({team:teamNo,x});closeModal();drawOrders();team(teamNo,document.querySelectorAll(".tab")[teamNo-1]);document.getElementById("fCustomer").value="";document.getElementById("fAddress").value="";localStorage.setItem("montageExtra",JSON.stringify(extra))}
+function loadExtra(){try{const saved=JSON.parse(localStorage.getItem("montageExtra")||"[]");saved.forEach(item=>{if(item&&item.x&&T[item.team]){T[item.team].s.push(item.x);extra.push(item)}})}catch(e){localStorage.removeItem("montageExtra")}}
 loadExtra();drawOrders();team(1,document.querySelector('.tab'));
-</script></body></html>
+</script>
+<div class="modal" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal-card">
+    <div class="modal-head"><div><b>Neuer Auftrag</b><div class="addr">Neues Kundenauftrag anlegen</div></div><button class="btn" onclick="closeModal()">✕</button></div>
+    <div class="modal-body">
+      <div class="formgrid">
+        <div class="field"><label>Kunde</label><input id="fCustomer" placeholder="Max Mustermann"></div>
+        <div class="field"><label>Team</label><select id="fTeam"><option value="1">Team 1</option><option value="2">Team 2</option><option value="3">Team 3</option></select></div>
+        <div class="field full"><label>Adresse</label><input id="fAddress" placeholder="Straße 12, 38226 Salzgitter"></div>
+        <div class="field full"><label>Auftrag-Typ</label><div class="type-choice">
+          <button id="typeBlue" class="sel blueChoice" onclick="pickType('blue');return false">● Freistehend</button>
+          <button id="typeRed" class="redChoice" onclick="pickType('red');return false">● Einbau</button>
+          <button id="typeYellow" class="yellowChoice" onclick="pickType('yellow');return false">● Lieferung</button>
+        </div></div>
+        <div class="field"><label>Gerät</label><select id="fDevice"><option>Waschmaschine</option><option>Geschirrspüler</option><option>Kühlschrank</option><option>Gefrierschrank</option><option>Backofen + Kochfeld</option><option>Wäschetrockner</option></select></div>
+        <div class="field"><label>Montagedauer</label><select id="fDuration"><option value="60">60 min</option><option value="90">90 min</option><option value="120">120 min</option><option value="30">30 min</option></select></div>
+        <div class="field"><label>Fenster von</label><input id="fFrom" type="time" value="08:00"></div>
+        <div class="field"><label>Fenster bis</label><input id="fTo" type="time" value="11:00"></div>
+      </div>
+      <div class="notice">Die genaue Ankunftszeit wird später im Tagesplan aus Fensterzeit, Montage und Fahrt berechnet.</div>
+    </div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal()">Abbrechen</button><button class="btn primary" onclick="addOrder()">＋ Auftrag hinzufügen</button></div>
+  </div>
+</div>
+</body></html>
