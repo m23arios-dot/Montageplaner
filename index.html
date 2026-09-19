@@ -60,17 +60,31 @@ function getOrderRows(){
   extra.forEach(o=>rows.push(o.x));
   return rows;
 }
+function normalizeSearch(value){
+  return String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+}
 function getFilteredOrderRows(){
-  const q=(document.getElementById('dashboardSearch')?.value||'').trim().toLowerCase();
-  if(!q) return getOrderRows();
-  return getOrderRows().filter(x=>{
-    const hay=[x[1],x[2],x[5],x[4],x[7],x[8],x[6]].join(' ').toLowerCase();
-    return hay.includes(q);
+  const input=document.getElementById('dashboardSearch');
+  const q=normalizeSearch(input ? input.value : '');
+  const rows=getOrderRows();
+  if(!q) return rows;
+  const terms=q.split(/\s+/).filter(Boolean);
+  return rows.filter(x=>{
+    const hay=normalizeSearch([x[0],x[1],x[2],x[4],x[5],x[6],x[7],x[8]].join(' '));
+    return terms.every(term=>hay.includes(term));
   });
 }
 function dashboardSearchChanged(){
   orderPage=1;
   drawOrders();
+}
+function initDashboardSearch(){
+  const input=document.getElementById('dashboardSearch');
+  if(!input || input.dataset.searchReady==='1') return;
+  input.dataset.searchReady='1';
+  input.addEventListener('input',dashboardSearchChanged);
+  input.addEventListener('keyup',dashboardSearchChanged);
+  input.addEventListener('search',dashboardSearchChanged);
 }
 function setOrderPage(page){
   const total=getFilteredOrderRows().length;
@@ -94,7 +108,9 @@ function opt(){document.querySelector('.title').textContent='Plan optimiert';set
 function openModal(){document.getElementById('modal').classList.add('show')}function closeModal(){document.getElementById('modal').classList.remove('show')}
 function pickType(t){selectedType=t;['blue','red','yellow'].forEach(x=>document.getElementById('type'+x[0].toUpperCase()+x.slice(1)).classList.remove('sel'));document.getElementById('type'+t[0].toUpperCase()+t.slice(1)).classList.add('sel')}
 function addOrder(){const c=fCustomer.value.trim(),a=fAddress.value.trim(),d=fDevice.value.trim(),from=fFrom.value,to=fTo.value;if(!c||!a||!d||!from||!to){alert('Bitte Kunde, Adresse, Gerät und Fensterzeit ausfüllen.');return}if(from>=to){alert('Fensterzeit ist ungültig.');return}const name=selectedType==='blue'?'Freistehend':selectedType==='red'?'Einbau':'Lieferung';const x=[from+'–'+to,c,a,'',name,d,selectedType,from+'–'+to,+fDuration.value];extra.push({x});localStorage.setItem('montageExtra',JSON.stringify(extra));orderPage=Math.max(1,Math.ceil(getOrderRows().length/10));drawOrders();closeModal();['fCustomer','fAddress','fDevice'].forEach(id=>document.getElementById(id).value='')}
-try{extra=JSON.parse(localStorage.getItem('montageExtra')||'[]')}catch(e){extra=[]}drawOrders();
+try{extra=JSON.parse(localStorage.getItem('montageExtra')||'[]')}catch(e){extra=[]}
+initDashboardSearch();
+drawOrders();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 
 const baseOrders=()=>{let rows=[];Object.values(T).forEach(t=>t.s.forEach(x=>rows.push({customer:x[1],address:x[2],device:x[5],type:x[4],color:x[6],window:x[7],duration:x[8],status:'Geplant'})));extra.forEach(o=>{let x=o.x;rows.push({customer:x[1],address:x[2],device:x[5],type:x[4],color:x[6],window:x[7],duration:x[8],status:'Offen'})});return rows};
@@ -110,6 +126,8 @@ function renderSettingsView(){let saved=JSON.parse(localStorage.getItem('montage
 function saveSettings(){let data={from:document.getElementById('setFrom').value,to:document.getElementById('setTo').value,region:document.getElementById('swRegion').classList.contains('on'),window:document.getElementById('swWindow').classList.contains('on')};localStorage.setItem('montageSettings',JSON.stringify(data));alert('Einstellungen gespeichert.');}
 // top search drives order view
 const topSearch=document.querySelector('.searchTop input');if(topSearch)topSearch.addEventListener('input',()=>{showView('orders',null);const q=document.getElementById('ordersSearch');if(q){q.value=topSearch.value;renderOrdersTable()}});
+document.addEventListener('DOMContentLoaded',()=>{initDashboardSearch();drawOrders()});
+window.addEventListener('load',()=>{initDashboardSearch();drawOrders()});
 
 // V34: robust initial dashboard team rendering.
 // Render Team 1 directly into the dashboard panel on every relevant lifecycle event.
