@@ -32,7 +32,7 @@
 <div class="layout">
 <section class="panel ordersPanel">
 <div class="panelHead"><div class="headTitle"><span class="headIcon">▣</span><div><h2>Aufträge</h2><p>Alle Aufträge für heute</p></div></div></div>
-<div class="filters"><div class="search"><span>⌕</span><input placeholder="Kunde, Adresse, PLZ oder Ort suchen …"></div><div class="legend"><span><i class="dot blue"></i>Freistehend</span><span><i class="dot red"></i>Einbau</span><span><i class="dot yellow"></i>Lieferung</span></div></div>
+<div class="filters"><div class="search"><span>⌕</span><input id="dashboardSearch" placeholder="Kunde, Adresse, PLZ oder Ort suchen …" oninput="dashboardSearchChanged()"></div><div class="legend"><span><i class="dot blue"></i>Freistehend</span><span><i class="dot red"></i>Einbau</span><span><i class="dot yellow"></i>Lieferung</span></div></div>
 <div class="tableWrap"><table><thead><tr><th>#</th><th>Kunde</th><th>Adresse</th><th>Gerät</th><th>Fenster</th><th>Dauer</th><th>Status</th><th></th></tr></thead><tbody id="orders"></tbody></table></div>
 <div class="panelFoot"><span id="ordersPageInfo">Zeige 1–10 von 18 Aufträgen</span><div class="pages"><button class="page" id="ordersPrev" onclick="setOrderPage(orderPage-1)">‹</button><button class="page active" id="ordersPage1" onclick="setOrderPage(1)">1</button><button class="page" id="ordersPage2" onclick="setOrderPage(2)">2</button><button class="page" id="ordersNext" onclick="setOrderPage(orderPage+1)">›</button></div></div>
 </section>
@@ -54,9 +54,41 @@
 const T={1:{r:'Salzgitter Nord',s:[['08:00','Müller','Chemnitzer Straße 18, 38226 Salzgitter','', 'Freistehend','Waschmaschine','blue','08–11',60],['09:38','Schneider','Berliner Straße 42, 38226 Salzgitter','8 min · 4,8 km','Einbau','Geschirrspüler','red','08–11',90],['10:46','Wagner','Kattowitzer Straße 27, 38226 Salzgitter','8 min · 5,1 km','Freistehend','Kühlschrank','blue','08–11',60],['13:00','Becker','Albert-Schweitzer-Straße 15, 38226 Salzgitter','14 min · 7,2 km','Einbau','Backofen + Kochfeld','red','13–16',90],['14:08','Fischer','Neißestraße 11, 38226 Salzgitter','8 min · 4,8 km','Lieferung','Kühlschrank','yellow','14:30–16:00',60],['15:45','Weber','Korbmacherweg 9, 38226 Salzgitter','7 min · 3,9 km','Freistehend','Geschirrspüler','blue','13–16',60]]},2:{r:'Salzgitter Süd',s:[['08:00','Hoffmann','Frankfurter Straße 65, 38259 Salzgitter','', 'Einbau','Geschirrspüler','red','08–11',90],['09:38','Klein','Vorsalzer Straße 24, 38259 Salzgitter','8 min · 4,2 km','Freistehend','Waschmaschine','blue','08–11',60],['13:00','Richter','Hildesheimer Straße 12, 38268 Lengede','22 min · 18,5 km','Lieferung','Gefrierschrank','yellow','13–16',60],['14:08','Wolf','Peiner Straße 18, 38159 Vechelde','15 min · 12,1 km','Einbau','Backofen + Kochfeld','red','13–16',90],['15:15','Neumann','Breslauer Straße 31, 38259 Salzgitter','23 min · 19,6 km','Freistehend','Kühlschrank','blue','13–16',60],['16:20','Hartmann','Klesmerstraße 16, 38259 Salzgitter','7 min · 3,4 km','Lieferung','Waschmaschine','yellow','13–16',60]]},3:{r:'Braunschweig Nord',s:[['08:00','Meyer','Bohlweg 30, 38100 Braunschweig','', 'Freistehend','Waschmaschine','blue','08–11',60],['09:38','Schulz','Berliner Straße 55, 38114 Braunschweig','10 min · 4,9 km','Einbau','Geschirrspüler','red','08–11',90],['10:46','Lehmann','Hamburger Straße 120, 38114 Braunschweig','8 min · 3,1 km','Freistehend','Kühlschrank','blue','08–11',60],['13:00','Krause','Petritorwall 22, 38118 Braunschweig','11 min · 5,4 km','Lieferung','Gefrierschrank','yellow','13–16',60],['14:08','Bauer','Berliner Heerstraße 8, 38104 Braunschweig','13 min · 6,8 km','Einbau','Backofen + Kochfeld','red','13–16',90],['15:46','König','Hauptstraße 15, 38110 Braunschweig','12 min · 5,7 km','Freistehend','Geschirrspüler','blue','13–16',60] ]}};
 let extra=[];let selectedType='blue';let orderPage=1;
 function tag(t,d){return `<span class="device ${t}Tag">${d}</span>`}
-function getOrderRows(){let rows=[];Object.values(T).forEach(t=>t.s.forEach(x=>rows.push(x)));extra.forEach(o=>rows.push(o.x));return rows}
-function setOrderPage(page){const total=getOrderRows().length;const maxPage=Math.max(1,Math.ceil(total/10));orderPage=Math.min(maxPage,Math.max(1,page));drawOrders()}
-function drawOrders(){let rows=getOrderRows(),start=(orderPage-1)*10,pageRows=rows.slice(start,start+10),total=rows.length;document.getElementById('orders').innerHTML=pageRows.map((x,i)=>`<tr><td>${start+i+1}</td><td class="customerCell">${x[1]}</td><td><span class="addr">${x[2]}</span></td><td>${tag(x[6],x[5])}</td><td><span class="window ${x[7].includes(':')?'special':''}">${x[7]}</span></td><td>${x[8]||60} min</td><td><span class="status">Geplant</span></td><td><button class="more">•••</button></td></tr>`).join('');const from=total?start+1:0,to=Math.min(start+10,total);const info=document.getElementById('ordersPageInfo');if(info)info.textContent=`Zeige ${from}–${to} von ${total} Aufträgen`;document.getElementById('ordersPage1')?.classList.toggle('active',orderPage===1);document.getElementById('ordersPage2')?.classList.toggle('active',orderPage===2);document.getElementById('ordersPrev')?.toggleAttribute('disabled',orderPage===1);document.getElementById('ordersNext')?.toggleAttribute('disabled',orderPage===maxPage)}
+function getOrderRows(){
+  let rows=[];
+  Object.values(T).forEach(t=>t.s.forEach(x=>rows.push(x)));
+  extra.forEach(o=>rows.push(o.x));
+  return rows;
+}
+function getFilteredOrderRows(){
+  const q=(document.getElementById('dashboardSearch')?.value||'').trim().toLowerCase();
+  if(!q) return getOrderRows();
+  return getOrderRows().filter(x=>{
+    const hay=[x[1],x[2],x[5],x[4],x[7],x[8],x[6]].join(' ').toLowerCase();
+    return hay.includes(q);
+  });
+}
+function dashboardSearchChanged(){
+  orderPage=1;
+  drawOrders();
+}
+function setOrderPage(page){
+  const total=getFilteredOrderRows().length;
+  const maxPage=Math.max(1,Math.ceil(total/10));
+  orderPage=Math.min(maxPage,Math.max(1,page));
+  drawOrders();
+}
+function drawOrders(){
+  const rows=getFilteredOrderRows(),start=(orderPage-1)*10,pageRows=rows.slice(start,start+10),total=rows.length;
+  document.getElementById('orders').innerHTML=pageRows.map((x,i)=>`<tr><td>${start+i+1}</td><td class="customerCell">${x[1]}</td><td><span class="addr">${x[2]}</span></td><td>${tag(x[6],x[5])}</td><td><span class="window ${x[7].includes(':')?'special':''}">${x[7]}</span></td><td>${x[8]||60} min</td><td><span class="status">Geplant</span></td><td><button class="more">•••</button></td></tr>`).join('')||`<tr><td colspan="8" class="empty">Keine Aufträge gefunden.</td></tr>`;
+  const from=total?start+1:0,to=Math.min(start+10,total);
+  document.getElementById('ordersPageInfo').textContent=`Zeige ${from}–${to} von ${total} Aufträgen`;
+  const maxPage=Math.max(1,Math.ceil(total/10));
+  document.getElementById('ordersPage1')?.classList.toggle('active',orderPage===1);
+  document.getElementById('ordersPage2')?.classList.toggle('active',orderPage===2);
+  document.getElementById('ordersPrev')?.toggleAttribute('disabled',orderPage===1);
+  document.getElementById('ordersNext')?.toggleAttribute('disabled',orderPage===maxPage);
+}
 function team(n,b){if(!T[n])return;document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));if(b)b.classList.add('active');if(document.getElementById('routeRegion'))renderDashboardTeam(n);if(document.getElementById('route2'))renderRoute2(n)}
 function opt(){document.querySelector('.title').textContent='Plan optimiert';setTimeout(()=>document.querySelector('.title').textContent='Tagesübersicht',1300)}
 function openModal(){document.getElementById('modal').classList.add('show')}function closeModal(){document.getElementById('modal').classList.remove('show')}
