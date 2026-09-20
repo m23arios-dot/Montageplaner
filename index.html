@@ -106,7 +106,14 @@ function saveEditedOrder(){const found=findOrder(editingId);if(!found)return;con
 function renderAllPlanner(){renderActiveTeamsChooser();renderTeamTabs('dashboardTeamTabs');drawOrders();renderSelectedDayPlan();if(document.getElementById('route2'))renderDayView();if(document.getElementById('ordersFull'))renderOrdersTable();if(document.getElementById('view-teams')&&!document.getElementById('view-teams').classList.contains('hidden'))renderTeamsView()}
 function closeDay(){if(!confirm('Tag wirklich abschließen? Die Aufträge dieses Tages werden aus der aktiven Planung entfernt.'))return;closedDays[selectedPlanDate]=true;localStorage.setItem('montageplaner-closed-days',JSON.stringify(closedDays));renderAllPlanner()}
 function reopenDay(){delete closedDays[selectedPlanDate];localStorage.setItem('montageplaner-closed-days',JSON.stringify(closedDays));renderAllPlanner()}
-function navigateTo(address){const url='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(address);window.location.href=url}
+function navigateTo(address){
+  const destination=String(address||'').replace(/\s+/g,' ').trim();
+  if(!destination){alert('Keine Adresse für Navigation vorhanden.');return false;}
+  const url='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(destination)+'&travelmode=driving';
+  const opened=window.open(url,'_blank');
+  if(!opened){window.location.assign(url);}
+  return false;
+}
 function moveOrder(teamNo,index,dir){const arr=T[teamNo]?.s;if(!arr||index<0||index>=arr.length)return;const ni=index+dir;if(ni<0||ni>=arr.length)return;[arr[index],arr[ni]]=[arr[ni],arr[index]];arr.forEach((x,i)=>{x[0]=i===0?x[0]:x[0];});manualOrderByDate[selectedPlanDate]=true;localStorage.setItem('montageplaner-manual-order',JSON.stringify(manualOrderByDate));saveTeamData();renderDashboardTeam(teamNo);if(document.getElementById('route2'))renderRoute2(teamNo)}
 function ensureOrderIds(){[1,2,3].forEach(n=>T[n].s.forEach(x=>{if(!x[11])x[11]=uid()}));saveTeamData()}
 
