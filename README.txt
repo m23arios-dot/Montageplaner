@@ -1,3 +1,5 @@
-Montageplaner V42 – JavaScript Anzeige Fix
+Montageplaner V45.1
 
-Behoben: Ein Initialisierungsblock wurde versehentlich außerhalb des Script-Tags ausgegeben und dadurch als sichtbarer Text am unteren Seitenrand dargestellt. Der Code ist jetzt wieder korrekt innerhalb eines Script-Tags.
+Fix: Navigation starten and Bearbeiten now use robust delegated click handlers for PWA/touch devices.
+Includes Umlagerung, active team selection, time-window-first optimizer, manual editing/order, and Tag abschließen.
+Temporary access password remains: Cmokwdupe26
