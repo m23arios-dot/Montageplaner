@@ -187,26 +187,85 @@ function getPLZ(address){
   const m=String(address||'').match(/\b\d{5}\b/);
   return m?m[0]:'Ohne PLZ';
 }
-function orderStartMinutes(x){
-  const m=String(x[7]||x[0]||'').match(/(\d{1,2}):(\d{2})/);
-  return m ? (+m[1])*60+(+m[2]) : 9999;
+function parseWindowMinutes(value){
+  const s=String(value||'').trim().replace(/[–—−]/g,'-').replace(/\s+/g,'');
+  const m=s.match(/(\d{1,2})(?::(\d{2}))?-(\d{1,2})(?::(\d{2}))?/);
+  if(!m)return null;
+  const sh=+m[1],sm=m[2]===undefined?0:+m[2],eh=+m[3],em=m[4]===undefined?0:+m[4];
+  if(sh>23||eh>23||sm>59||em>59)return null;
+  return {start:sh*60+sm,end:eh*60+em};
 }
+function orderWindow(x){
+  return parseWindowMinutes(x[7])||parseWindowMinutes(x[0])||{start:9999,end:1439};
+}
+function orderStartMinutes(x){return orderWindow(x).start}
+function orderEndMinutes(x){return orderWindow(x).end}
+function fmtTime(min){min=Math.max(0,Math.round(min));const h=Math.floor(min/60)%24,m=min%60;return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')}
+function getOrderPLZ(x){return getPLZ(x[2])||'99999'}
 function optimizeByPLZ(){
   const rows=getOrderRows().map(x=>Array.isArray(x)?x.slice():x);
   const active=getActiveTeams();
   if(!rows.length){alert('Keine Aufträge für diesen Tag.');return}
   if(!active.length){alert('Keine aktiven Teams ausgewählt.');return}
-  const groups={};
-  rows.forEach(x=>{const plz=getPLZ(x[2]);(groups[plz] ||= []).push(x)});
-  const groupList=Object.entries(groups).map(([plz,items])=>({plz,items,minutes:items.reduce((s,x)=>s+(+x[8]||60),0),firstWindow:Math.min(...items.map(orderStartMinutes))})).sort((a,b)=>a.firstWindow-b.firstWindow || b.minutes-a.minutes);
-  const buckets=Object.fromEntries(active.map(n=>[n,[]])); const totals=Object.fromEntries(active.map(n=>[n,0]));
-  // Time windows are the hard priority. Process earlier windows first, then use PLZ and workload to choose a team.
-  groupList.forEach(g=>{let idx=active[0];for(const n of active.slice(1)){if(totals[n]<totals[idx])idx=n;}buckets[idx].push(g);totals[idx]+=g.minutes});
-  active.forEach(n=>{const items=buckets[n].flatMap(g=>g.items).sort((a,b)=>orderStartMinutes(a)-orderStartMinutes(b)||getPLZ(a[2]).localeCompare(getPLZ(b[2])));items.forEach((x,i)=>{if(i===0)x[3]='';else x[3]=getPLZ(x[2])===getPLZ(items[i-1][2])?'PLZ gleich':'PLZ-Wechsel';x[11]=x[11]||uid()});T[n]={r:items.length?`PLZ ${[...new Set(items.map(x=>getPLZ(x[2])))].join(' · ')}`:'Keine Aufträge',s:items}});
+
+  // Zeitfenster zuerst. PLZ und Auslastung dürfen die Zeitlogik nicht überstimmen.
+  const jobs=rows.map((job,index)=>({job,index,win:orderWindow(job)}))
+    .sort((a,b)=>a.win.start-b.win.start||a.win.end-b.win.end||getOrderPLZ(a.job).localeCompare(getOrderPLZ(b.job))||a.index-b.index);
+
+  const buckets=Object.fromEntries(active.map(n=>[n,[]]));
+  const available=Object.fromEntries(active.map(n=>[n,0]));
+  const lastPLZ=Object.fromEntries(active.map(n=>[n,'']));
+
+  jobs.forEach(({job,win})=>{
+    const dur=+job[8]||60;
+    // Teams werden nur danach verglichen, ob der Auftrag in sein Fenster passt.
+    const feasible=active.filter(n=>Math.max(available[n],win.start)+dur<=win.end);
+    let candidates=feasible.length?feasible:active.slice();
+
+    // Erst gleiche PLZ, dann das Team mit der frühesten möglichen Ankunft.
+    candidates.sort((a,b)=>{
+      const aSame=lastPLZ[a]===getOrderPLZ(job)?0:1;
+      const bSame=lastPLZ[b]===getOrderPLZ(job)?0:1;
+      if(aSame!==bSame)return aSame-bSame;
+      const aa=Math.max(available[a],win.start),bb=Math.max(available[b],win.start);
+      return aa-bb||available[a]-available[b]||a-b;
+    });
+
+    const team=candidates[0];
+    const arrival=Math.max(available[team],win.start);
+    const late=arrival+dur>win.end;
+    job[0]=fmtTime(arrival);
+    job[3]=late?'Zeitfenster kritisch':(buckets[team].length?'Weiter zum nächsten Auftrag':'Start');
+    job[11]=job[11]||uid();
+    buckets[team].push(job);
+    available[team]=arrival+dur;
+    lastPLZ[team]=getOrderPLZ(job);
+  });
+
+  // Sicherheitsprüfung: jede einzelne Teamroute wird final nach Fensterbeginn sortiert.
+  // Dadurch kann z.B. 14:00 niemals vor 08:00 stehen.
+  active.forEach(n=>{
+    const items=buckets[n].sort((a,b)=>{
+      const wa=orderWindow(a),wb=orderWindow(b);
+      return wa.start-wb.start||wa.end-wb.end||String(a[11]).localeCompare(String(b[11]));
+    });
+    let cursor=0;
+    items.forEach((x,i)=>{
+      const w=orderWindow(x),dur=+x[8]||60;
+      const arrival=Math.max(cursor,w.start);
+      x[0]=fmtTime(arrival);
+      x[3]=arrival+dur>w.end?'Zeitfenster kritisch':(i===0?'Start':(getOrderPLZ(x)===getOrderPLZ(items[i-1])?'PLZ gleich':'PLZ-Wechsel'));
+      cursor=arrival+dur;
+    });
+    T[n]={r:items.length?`PLZ ${[...new Set(items.map(x=>getOrderPLZ(x)))].join(' · ')}`:'Keine Aufträge',s:items};
+  });
   [1,2,3].filter(n=>!active.includes(n)).forEach(n=>T[n]={r:'Nicht aktiv',s:[]});
-  saveTeamData(); manualOrderByDate[selectedPlanDate]=false;localStorage.setItem('montageplaner-manual-order',JSON.stringify(manualOrderByDate));
+  saveTeamData();
+  manualOrderByDate[selectedPlanDate]=false;
+  localStorage.setItem('montageplaner-manual-order',JSON.stringify(manualOrderByDate));
   renderAllPlanner();
-  const title=document.querySelector('.title');if(title){title.textContent='Plan nach Zeitfenstern optimiert';setTimeout(()=>title.textContent='Tagesübersicht',1800)}
+  const title=document.querySelector('.title');
+  if(title){title.textContent='Plan nach Zeitfenstern optimiert';setTimeout(()=>title.textContent='Tagesübersicht',1800)}
 }
 function opt(){ if(manualOrderByDate[selectedPlanDate] && !confirm('Die aktuelle Reihenfolge wurde manuell geändert. Plan optimieren kann sie neu ordnen. Fortfahren?'))return; optimizeByPLZ(); }
 function openModal(){
@@ -277,21 +336,13 @@ const topSearch=document.querySelector('.searchTop input');if(topSearch)topSearc
 document.addEventListener('DOMContentLoaded',()=>{initDashboardSearch();drawOrders()});
 window.addEventListener('load',()=>{initDashboardSearch();drawOrders()});
 
-// V45.1: robust touch/click handlers for PWA navigation and editing.
-document.addEventListener('click',function(e){
-  const nav=e.target.closest('.navBtn');
-  if(nav){e.preventDefault();e.stopPropagation();const address=nav.getAttribute('data-nav-address')||'';if(address)window.location.assign('https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(address));return;}
-  const edit=e.target.closest('.editBtn');
-  if(edit){e.preventDefault();e.stopPropagation();const id=edit.getAttribute('data-edit-id')||'';if(id)editOrder(id);return;}
-});
-
 // V34: robust initial dashboard team rendering.
 // Render Team 1 directly into the dashboard panel on every relevant lifecycle event.
 function renderDashboardTeam(n){
   const region=document.getElementById('routeRegion');const route=document.getElementById('route');if(!region||!route)return false;
   const t=T[n]||{r:'Keine Aufträge',s:[]};if(!getActiveTeams().includes(n)){region.innerHTML='<div class="region">Team nicht aktiv</div>';route.innerHTML='<div class="routeEmpty">Dieses Team fährt an diesem Tag nicht.</div>';return true}
   region.innerHTML=`<div class="region">${TEAM_NAMES[n]} · ${t.r}<small>${t.s.length} Aufträge</small></div>`;let s='';
-  t.s.forEach((x,i)=>{if(i)s+=`<div class="drive">🚗 ${x[3]||'Weiter zum nächsten Auftrag'}</div>`;const id=x[11]||'';s+=`<div class="stop"><div class="stopTime">${x[0]}</div><div class="timeline ${x[6]==='red'?'redDot':x[6]==='yellow'?'yellowDot':x[6]==='green'?'greenDot':''}"><div class="job ${x[6]==='red'?'redLine':x[6]==='yellow'?'yellowLine':x[6]==='green'?'greenLine':'blueLine'}"><div class="jobTop"><div class="jobName">${x[1]}</div><span class="tag ${x[6]}Tag">${x[4]}</span></div><div class="jobMeta">${x[2]}</div><div class="jobMeta">${x[5]}</div><div class="duration">${x[8]} min · ${x[7]}</div><div class="jobActions"><button type="button" class="jobAction navBtn" data-nav-address="${String(x[2]).replace(/&/g,'&amp;').replace(/"/g,'&quot;')}">🚗 Navigation starten</button><button type="button" class="jobAction editBtn" data-edit-id="${String(id).replace(/&/g,'&amp;').replace(/"/g,'&quot;')}">✎ Bearbeiten</button><button class="jobAction" onclick="moveOrder(${n},${i},-1)">↑</button><button class="jobAction" onclick="moveOrder(${n},${i},1)">↓</button></div></div></div></div>`});
+  t.s.forEach((x,i)=>{if(i)s+=`<div class="drive">🚗 ${x[3]||'Weiter zum nächsten Auftrag'}</div>`;const id=x[11]||'';s+=`<div class="stop"><div class="stopTime">${x[0]}</div><div class="timeline ${x[6]==='red'?'redDot':x[6]==='yellow'?'yellowDot':x[6]==='green'?'greenDot':''}"><div class="job ${x[6]==='red'?'redLine':x[6]==='yellow'?'yellowLine':x[6]==='green'?'greenLine':'blueLine'}"><div class="jobTop"><div class="jobName">${x[1]}</div><span class="tag ${x[6]}Tag">${x[4]}</span></div><div class="jobMeta">${x[2]}</div><div class="jobMeta">${x[5]}</div><div class="duration">${x[8]} min · ${x[7]}</div><div class="jobActions"><button class="jobAction navBtn" onclick="navigateTo(${JSON.stringify(x[2])})">🚗 Navigation starten</button><button class="jobAction" onclick="editOrder(${JSON.stringify(id)})">✎ Bearbeiten</button><button class="jobAction" onclick="moveOrder(${n},${i},-1)">↑</button><button class="jobAction" onclick="moveOrder(${n},${i},1)">↓</button></div></div></div></div>`});
   route.innerHTML=s+(t.s.length?`<div class="notice">Zeitfenster haben Vorrang. PLZ und Fahrweg werden innerhalb der zeitlichen Möglichkeiten berücksichtigt. Fahrdaten sind im Prototyp Demo-Werte.</div>`:'<div class="routeEmpty">Keine Aufträge für dieses Team.</div>');return true}
 function initDashboardTeam(){
   // Try immediately, after DOM ready, and after load. One of these will always run
