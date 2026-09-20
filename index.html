@@ -202,33 +202,95 @@ function orderStartMinutes(x){return orderWindow(x).start}
 function orderEndMinutes(x){return orderWindow(x).end}
 function fmtTime(min){min=Math.max(0,Math.round(min));const h=Math.floor(min/60)%24,m=min%60;return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')}
 function getOrderPLZ(x){return getPLZ(x[2])||'99999'}
+function plzDistance(a,b){
+  const aa=parseInt(String(a||'').replace(/\D/g,''),10),bb=parseInt(String(b||'').replace(/\D/g,''),10);
+  if(!Number.isFinite(aa)||!Number.isFinite(bb))return 99999;
+  return Math.abs(aa-bb);
+}
+function areaInfo(plz){
+  const p=String(plz||'').replace(/\D/g,'');
+  // Approximate geographic centres for the local PLZ areas used by the planner.
+  // These are used only for route ordering, not for navigation or exact mileage.
+  const centers={
+    '38100':[52.264,10.523],'38102':[52.253,10.535],'38104':[52.270,10.575],
+    '38106':[52.273,10.550],'38108':[52.275,10.590],'38110':[52.300,10.600],
+    '38112':[52.285,10.470],'38114':[52.280,10.500],'38116':[52.285,10.450],
+    '38118':[52.245,10.500],'38120':[52.235,10.470],'38122':[52.220,10.510],
+    '38124':[52.235,10.560],'38126':[52.215,10.565],
+    '38159':[52.325,10.360],
+    '38226':[52.150,10.330],'38228':[52.135,10.290],'38229':[52.160,10.270],
+    '38239':[52.170,10.250],'38259':[52.060,10.330],'38268':[52.210,10.300]
+  };
+  if(centers[p]) return {plz:p,lat:centers[p][0],lon:centers[p][1],known:true};
+  const n=parseInt(p,10);
+  // Fallback: coarse regional buckets. Never pretend these are exact coordinates.
+  if(p.startsWith('381')) return {plz:p,lat:52.26,lon:10.52,known:false,area:'Braunschweig'};
+  if(p.startsWith('382')) return {plz:p,lat:52.15,lon:10.30,known:false,area:'Salzgitter/Lengede'};
+  if(Number.isFinite(n)) return {plz:p,lat:52.20,lon:10.45,known:false,area:'Region'};
+  return {plz:p,lat:52.20,lon:10.45,known:false,area:'Unbekannt'};
+}
+function geoDistance(a,b){
+  const A=areaInfo(a),B=areaInfo(b);
+  const dx=(A.lat-B.lat)*111, dy=(A.lon-B.lon)*68;
+  return Math.sqrt(dx*dx+dy*dy);
+}
+function routeAreaScore(prevPlz,nextPlz,firstPlz,prevPrevPlz){
+  if(!prevPlz) return 0;
+  const p=areaInfo(prevPlz), n=areaInfo(nextPlz), f=firstPlz?areaInfo(firstPlz):null;
+  let score=geoDistance(prevPlz,nextPlz);
+  // Strong penalty for crossing back over an already visited area.
+  if(prevPrevPlz && geoDistance(prevPrevPlz,nextPlz) > geoDistance(prevPrevPlz,prevPlz)*1.35) score+=18;
+  // Once a route has a direction, reward continuing roughly in that direction.
+  if(f && prevPlz!==firstPlz){
+    const q=areaInfo(prevPlz), r=areaInfo(nextPlz);
+    const vx=q.lat-f.lat, vy=q.lon-f.lon;
+    const wx=r.lat-q.lat, wy=r.lon-q.lon;
+    const dot=vx*wx+vy*wy;
+    if(dot<0) score+=25;
+  }
+  return score;
+}
 function optimizeByPLZ(){
   const rows=getOrderRows().map(x=>Array.isArray(x)?x.slice():x);
   const active=getActiveTeams();
   if(!rows.length){alert('Keine Aufträge für diesen Tag.');return}
   if(!active.length){alert('Keine aktiven Teams ausgewählt.');return}
 
-  // Zeitfenster zuerst. PLZ und Auslastung dürfen die Zeitlogik nicht überstimmen.
-  const jobs=rows.map((job,index)=>({job,index,win:orderWindow(job)}))
-    .sort((a,b)=>a.win.start-b.win.start||a.win.end-b.win.end||getOrderPLZ(a.job).localeCompare(getOrderPLZ(b.job))||a.index-b.index);
+  // Zeitfenster bleiben die harte Vorgabe. Innerhalb dessen wird die geografisch
+  // sinnvollste Route gesucht. Die PLZ-Koordinaten sind nur Näherungswerte.
+  const jobs=rows.map((job,index)=>({job,index,win:orderWindow(job),plz:getOrderPLZ(job)}))
+    .sort((a,b)=>a.win.start-b.win.start||a.win.end-b.win.end||a.index-b.index);
 
   const buckets=Object.fromEntries(active.map(n=>[n,[]]));
   const available=Object.fromEntries(active.map(n=>[n,0]));
   const lastPLZ=Object.fromEntries(active.map(n=>[n,'']));
+  const firstPLZ=Object.fromEntries(active.map(n=>[n,'']));
+  const prevPLZ=Object.fromEntries(active.map(n=>[n,'']));
+  const usedAreas=Object.fromEntries(active.map(n=>[n,new Set()]));
 
-  jobs.forEach(({job,win})=>{
+  jobs.forEach(({job,win,plz})=>{
     const dur=+job[8]||60;
-    // Teams werden nur danach verglichen, ob der Auftrag in sein Fenster passt.
     const feasible=active.filter(n=>Math.max(available[n],win.start)+dur<=win.end);
-    let candidates=feasible.length?feasible:active.slice();
+    const candidates=feasible.length?feasible:active.slice();
 
-    // Erst gleiche PLZ, dann das Team mit der frühesten möglichen Ankunft.
     candidates.sort((a,b)=>{
-      const aSame=lastPLZ[a]===getOrderPLZ(job)?0:1;
-      const bSame=lastPLZ[b]===getOrderPLZ(job)?0:1;
-      if(aSame!==bSame)return aSame-bSame;
-      const aa=Math.max(available[a],win.start),bb=Math.max(available[b],win.start);
-      return aa-bb||available[a]-available[b]||a-b;
+      const arrivalA=Math.max(available[a],win.start), arrivalB=Math.max(available[b],win.start);
+      const waitA=Math.max(0,win.start-available[a]), waitB=Math.max(0,win.start-available[b]);
+      const sameA=lastPLZ[a]===plz?0:1, sameB=lastPLZ[b]===plz?0:1;
+      const areaA=lastPLZ[a]&&areaInfo(lastPLZ[a]).area===areaInfo(plz).area?0:1;
+      const areaB=lastPLZ[b]&&areaInfo(lastPLZ[b]).area===areaInfo(plz).area?0:1;
+      const routeA=routeAreaScore(lastPLZ[a],plz,firstPLZ[a],prevPLZ[a]);
+      const routeB=routeAreaScore(lastPLZ[b],plz,firstPLZ[b],prevPLZ[b]);
+      const distanceA=lastPLZ[a]?geoDistance(lastPLZ[a],plz):0;
+      const distanceB=lastPLZ[b]?geoDistance(lastPLZ[b],plz):0;
+      // Hard feasibility first, then same area/PLZ, then short continuous route,
+      // then waiting and workload. This prevents unnecessary cross-town zigzags.
+      if(sameA!==sameB)return sameA-sameB;
+      if(areaA!==areaB)return areaA-areaB;
+      if(routeA!==routeB)return routeA-routeB;
+      if(distanceA!==distanceB)return distanceA-distanceB;
+      if(waitA!==waitB)return waitA-waitB;
+      return available[a]-available[b]||a-b;
     });
 
     const team=candidates[0];
@@ -238,16 +300,19 @@ function optimizeByPLZ(){
     job[3]=late?'Zeitfenster kritisch':(buckets[team].length?'Weiter zum nächsten Auftrag':'Start');
     job[11]=job[11]||uid();
     buckets[team].push(job);
+    if(!firstPLZ[team])firstPLZ[team]=plz;
+    prevPLZ[team]=lastPLZ[team];
+    lastPLZ[team]=plz;
+    usedAreas[team].add(areaInfo(plz).area||plz.slice(0,3));
     available[team]=arrival+dur;
-    lastPLZ[team]=getOrderPLZ(job);
   });
 
-  // Sicherheitsprüfung: jede einzelne Teamroute wird final nach Fensterbeginn sortiert.
-  // Dadurch kann z.B. 14:00 niemals vor 08:00 stehen.
   active.forEach(n=>{
+    // Keep the actual route order generated above. A final time sort is only
+    // used as a safety net for equal/overlapping windows.
     const items=buckets[n].sort((a,b)=>{
       const wa=orderWindow(a),wb=orderWindow(b);
-      return wa.start-wb.start||wa.end-wb.end||String(a[11]).localeCompare(String(b[11]));
+      return wa.start-wb.start||wa.end-wb.end||a[0].localeCompare(b[0]);
     });
     let cursor=0;
     items.forEach((x,i)=>{
@@ -265,7 +330,7 @@ function optimizeByPLZ(){
   localStorage.setItem('montageplaner-manual-order',JSON.stringify(manualOrderByDate));
   renderAllPlanner();
   const title=document.querySelector('.title');
-  if(title){title.textContent='Plan nach Zeitfenstern optimiert';setTimeout(()=>title.textContent='Tagesübersicht',1800)}
+  if(title){title.textContent='Plan nach Zeitfenstern & Gebieten optimiert';setTimeout(()=>title.textContent='Tagesübersicht',1800)}
 }
 function opt(){ if(manualOrderByDate[selectedPlanDate] && !confirm('Die aktuelle Reihenfolge wurde manuell geändert. Plan optimieren kann sie neu ordnen. Fortfahren?'))return; optimizeByPLZ(); }
 function openModal(){
